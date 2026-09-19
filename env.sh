@@ -6,6 +6,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export REPO_ROOT
 
 export CLUSTER_NAME="agent-substrate-demo"
+# .github/workflows/e2e.yml hardcodes this same port in its KO_DOCKER_REPO
+# env var (localhost:5001) - update both together if this ever changes.
 export KIND_REGISTRY_PORT="5001"
 
 # Pinned exactly - see Global Constraints in the plan this was built from.
