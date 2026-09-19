@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: pip install --quiet "yamllint==1.38.0"
+      - run: pip install --quiet --require-hashes -r .github/requirements-yamllint.txt
       # .github/dependabot.yml is the one hand-authored YAML file this repo
       # owns outside the vendored Substrate checkout under .vendor/, which
       # is someone else's code, pinned, and not ours to lint.

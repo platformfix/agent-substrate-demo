@@ -43,6 +43,7 @@ echo "==> Installing Agent Substrate (kind-local: gVisor, Postgres, hostpath CSI
 # what is actually a public, anonymously-pullable image. Point it at an
 # empty, isolated Docker config so it never sees that credential helper.
 ISOLATED_DOCKER_CONFIG="$(mktemp -d)"
+trap 'rm -rf "$ISOLATED_DOCKER_CONFIG"' EXIT
 echo '{}' > "$ISOLATED_DOCKER_CONFIG/config.json"
 KIND_CLUSTER_NAME="$CLUSTER_NAME" DOCKER_CONFIG="$ISOLATED_DOCKER_CONFIG" \
   ./hack/install-ate-kind.sh --deploy-ate-system

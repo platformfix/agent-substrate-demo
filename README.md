@@ -120,6 +120,17 @@ update:
    before committing the bump - `preflight.sh`'s two `PASS` assertions are
    what actually prove parking behavior didn't regress upstream.
 
+## Repo layout
+
+```
+env.sh, util.sh  - shared config and the desc/run/run_expect_fail harness
+setup.sh         - green room: vendors Substrate at the pinned SHA, creates the kind cluster, installs Agent Substrate and the parking demo
+preflight.sh     - immediately before stage: proves both the parked-200 and disabled-parking-503 outcomes for real, restores the baseline
+demo.sh          - the on-stage script; DEMO_AUTO_RUN=1 DEMO_RUN_FAST=1 drives the same run CI does, for rehearsal and e2e
+reset.sh         - between rehearsals: restores parking and suspends all actors, without recreating the cluster
+cleanup.sh       - after the conference: deletes the kind cluster and its registry
+```
+
 ## Security and supply chain
 
 Every GitHub Action in this repo's workflows is pinned to a commit SHA, not

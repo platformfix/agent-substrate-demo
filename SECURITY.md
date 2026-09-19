@@ -12,4 +12,4 @@ Include what you'd include in any good bug report: the affected commit, what you
 
 ## Scope
 
-This repo creates a local, disposable `kind` cluster and grants the bundled `kubectl-mcp-server` unrestricted access to it (see README's "Why no safety flags" section) - that's the intended design for a local, throwaway demo cluster, not a finding on its own. Reports about the setup/teardown scripts, the vendored manifests, the CI pipeline, or the MCP server registration `setup.sh` creates via `claude mcp add-json` are in scope.
+This repo stands up a local, disposable `kind` cluster and installs a pinned upstream [Agent Substrate](https://github.com/agent-substrate/substrate) checkout at the commit SHA pinned in `env.sh` - that's the intended design for a local, throwaway demo cluster, not a finding on its own. Reports about the setup/teardown scripts (`setup.sh`, `preflight.sh`, `demo.sh`, `reset.sh`, `cleanup.sh`), the pinned vendoring mechanism, or the CI pipeline are in scope.

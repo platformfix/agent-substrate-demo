@@ -1,7 +1,7 @@
 extends: default
 
 ignore:
-  - vendor/
+  - .vendor/
 
 rules:
   line-length: disable
