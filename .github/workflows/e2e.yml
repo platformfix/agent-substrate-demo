@@ -1,0 +1,65 @@
+name: e2e
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    name: full demo lifecycle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Pinned explicitly, not via go-version-file: that file only
+          # exists after ./setup.sh vendors Substrate later in this same
+          # job, so reading it here would fail on every fresh checkout.
+          # Matches agent-substrate/substrate's own go.mod (`go 1.27.0`)
+          # at the pinned commit - re-check this if the Substrate pin
+          # (env.sh SUBSTRATE_SHA) ever moves.
+          go-version: "1.27.0"
+
+      - name: Install kind (cluster creation happens in setup.sh, not here)
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          install_only: "true"
+
+      - name: Install ko
+        uses: ko-build/setup-ko@61b4d1d396f5b2e7d6bb6fefdce3dc38d1a13445 # v0.10
+
+      - name: Install pv
+        run: sudo apt-get update && sudo apt-get install -y pv
+
+      - name: Run the full lifecycle - the same scripts a presenter runs
+        env:
+          DEMO_AUTO_RUN: "1"
+          DEMO_RUN_FAST: "1"
+        run: |
+          ./setup.sh
+          ./preflight.sh
+          ./demo.sh
+          ./reset.sh
+          ./cleanup.sh
+
+      - name: Show cluster state on failure
+        if: failure()
+        run: |
+          export KUBECONFIG="$PWD/.kubeconfig"
+          kubectl get pods -A || true
+          kubectl get workerpools -A || true
+          kubectl ate get actors -a ate-demo-parking || true
