@@ -29,7 +29,7 @@ run "kubectl ate get actors -a $ATESPACE"
 desc "Now the pool is full. Request a third actor."
 pause_for_presenter "[the next request will hang - that's the point]"
 desc "In a second terminal, free a worker within the park budget."
-( sleep 2; kubectl ate suspend actor p1 -a "$ATESPACE" ) &
+( sleep 2; kubectl ate suspend actor p1 -a "$ATESPACE" >/dev/null 2>&1 ) &
 run "curl -s -w '\n-> HTTP %{http_code} in %{time_total}s\n' -H 'ate-target-actor: $ATESPACE/p3' http://localhost:8000"
 
 desc "That parked. It waited, then resolved. Now watch it fail without parking."

@@ -60,7 +60,7 @@ resume_via_curl p1 || fail "p1 did not resume"
 resume_via_curl p2 || fail "p2 did not resume"
 
 echo "==> Proving a parked request resolves (p3, while p1 suspends within budget)"
-( sleep 1; kubectl ate suspend actor p1 -a "$ATESPACE" ) &
+( sleep 1; kubectl ate suspend actor p1 -a "$ATESPACE" >/dev/null 2>&1 ) &
 code=$(curl -s -o /dev/null -w '%{http_code}' \
   -H "ate-target-actor: $ATESPACE/p3" http://localhost:8000)
 [ "$code" = "200" ] || fail "expected p3 to park then succeed (200), got $code"
