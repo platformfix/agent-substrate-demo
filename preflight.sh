@@ -20,31 +20,7 @@ for id in p1 p2 p3 p4; do
 done
 
 echo "==> Waiting for atenet-router to be a single stable pod"
-# kubectl port-forward svc/atenet-router binds to one specific backing pod
-# for the tunnel's entire lifetime and does NOT reconnect if that pod is
-# later deleted (verified directly: force-deleting the bound pod breaks an
-# already-open tunnel with "lost connection to pod", the same signature
-# preflight.sh hit in back-to-back runs). A prior run's own restore step
-# (rollout undo) leaves its outgoing pod alive for --drain-delay (13s)
-# after the new one is Ready, so starting the tunnel immediately can bind
-# it to a pod that's about to disappear. Wait for exactly one Ready pod -
-# no leftover Terminating one - before opening the tunnel at all.
-wait_for_router_stable() {
-  local i names total ready
-  for i in $(seq 1 30); do
-    names=$(kubectl -n ate-system get pods -l app=atenet-router -o jsonpath='{.items[*].metadata.name}')
-    total=$(wc -w <<<"$names")
-    if [ "$total" -eq 1 ]; then
-      ready=$(kubectl -n ate-system get pods -l app=atenet-router \
-        -o jsonpath='{.items[0].status.containerStatuses[*].ready}')
-      if [ -n "$ready" ] && [[ "$ready" != *false* ]]; then
-        return 0
-      fi
-    fi
-    sleep 1
-  done
-  return 1
-}
+# wait_for_router_stable lives in util.sh (shared with demo.sh).
 wait_for_router_stable || fail "atenet-router never stabilized to a single Ready pod"
 
 echo "==> Port-forwarding atenet-router to localhost:8000"
@@ -53,12 +29,8 @@ start_port_forward() {
     >/tmp/preflight-portforward.log 2>&1 &
   PF_PID=$!
 }
-restart_port_forward() {
-  kill "$PF_PID" 2>/dev/null || true
-  wait "$PF_PID" 2>/dev/null || true
-  start_port_forward
-  sleep 2
-}
+# restart_port_forward lives in util.sh (shared with demo.sh); it calls
+# start_port_forward above and expects PF_PID, both defined here.
 start_port_forward
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 sleep 2
@@ -80,7 +52,7 @@ resume_via_curl() {
     if [ "$rc" -eq 22 ]; then
       return 1
     fi
-    restart_port_forward
+    restart_port_forward # from util.sh
   done
   return 1
 }
