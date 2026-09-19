@@ -40,6 +40,20 @@ jobs:
           install_only: "true"
 
       - name: Install ko
+        # setup-ko only skips its ghcr.io login and default
+        # KO_DOCKER_REPO=ghcr.io/<owner>/<repo> when KO_DOCKER_REPO is
+        # already set (see its action.yml) - unset, it persists that
+        # ghcr.io value to every later step via GITHUB_ENV, so
+        # install-ate-kind.sh's own `${KO_DOCKER_REPO:-localhost:5001}`
+        # default never fires and ko tries to push demo images to a
+        # ghcr.io path this runner has no permission to write, failing
+        # the job with "DENIED: requested access to the resource is
+        # denied". Set it here to the same local kind registry setup.sh
+        # creates (env.sh's KIND_REGISTRY_PORT) so ko pushes there
+        # instead, matching what happens on a real machine with no
+        # KO_DOCKER_REPO in its environment.
+        env:
+          KO_DOCKER_REPO: localhost:5001
         uses: ko-build/setup-ko@61b4d1d396f5b2e7d6bb6fefdce3dc38d1a13445 # v0.10
 
       - name: Install pv
