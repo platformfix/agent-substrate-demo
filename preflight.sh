@@ -19,23 +19,68 @@ for id in p1 p2 p3 p4; do
     2>/dev/null || true # idempotent - already exists is fine
 done
 
+echo "==> Waiting for atenet-router to be a single stable pod"
+# kubectl port-forward svc/atenet-router binds to one specific backing pod
+# for the tunnel's entire lifetime and does NOT reconnect if that pod is
+# later deleted (verified directly: force-deleting the bound pod breaks an
+# already-open tunnel with "lost connection to pod", the same signature
+# preflight.sh hit in back-to-back runs). A prior run's own restore step
+# (rollout undo) leaves its outgoing pod alive for --drain-delay (13s)
+# after the new one is Ready, so starting the tunnel immediately can bind
+# it to a pod that's about to disappear. Wait for exactly one Ready pod -
+# no leftover Terminating one - before opening the tunnel at all.
+wait_for_router_stable() {
+  local i names total ready
+  for i in $(seq 1 30); do
+    names=$(kubectl -n ate-system get pods -l app=atenet-router -o jsonpath='{.items[*].metadata.name}')
+    total=$(wc -w <<<"$names")
+    if [ "$total" -eq 1 ]; then
+      ready=$(kubectl -n ate-system get pods -l app=atenet-router \
+        -o jsonpath='{.items[0].status.containerStatuses[*].ready}')
+      if [ -n "$ready" ] && [[ "$ready" != *false* ]]; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+wait_for_router_stable || fail "atenet-router never stabilized to a single Ready pod"
+
 echo "==> Port-forwarding atenet-router to localhost:8000"
-kubectl port-forward -n ate-system svc/atenet-router 8000:80 \
-  >/tmp/preflight-portforward.log 2>&1 &
-PF_PID=$!
+start_port_forward() {
+  kubectl port-forward -n ate-system svc/atenet-router 8000:80 \
+    >/tmp/preflight-portforward.log 2>&1 &
+  PF_PID=$!
+}
+restart_port_forward() {
+  kill "$PF_PID" 2>/dev/null || true
+  wait "$PF_PID" 2>/dev/null || true
+  start_port_forward
+  sleep 2
+}
+start_port_forward
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 sleep 2
 
 echo "==> Filling both workers (p1, p2 -> RUNNING)"
-# Retries: a router that just came back from a prior run's own patch/undo
-# cycle can still be mid-drain (its --drain-delay on the outgoing pod) when
-# this port-forward resolves its backing pod, producing a transient
-# "connection refused" that isn't actually about the actor's resume path.
+# Belt and suspenders on top of wait_for_router_stable above: if the tunnel
+# still ends up bound to a pod that then disappears (e.g. it started
+# Terminating in the gap between the stability check and this dial), no
+# amount of curl retries against that same dead tunnel will recover it -
+# the fix is to tear the port-forward down and re-establish it, not just
+# retry the request. A curl -f exit code of 22 means the server actually
+# answered with a bad HTTP status - a real backend problem, not a broken
+# tunnel - so that one is NOT retried.
 resume_via_curl() {
-  local id="$1" attempt
+  local id="$1" attempt rc
   for attempt in $(seq 1 15); do
     curl -sf -H "ate-target-actor: $ATESPACE/$id" http://localhost:8000 >/dev/null && return 0
-    sleep 1
+    rc=$?
+    if [ "$rc" -eq 22 ]; then
+      return 1
+    fi
+    restart_port_forward
   done
   return 1
 }
