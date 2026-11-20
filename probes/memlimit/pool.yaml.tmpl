@@ -1,0 +1,29 @@
+# One worker with room for two 256Mi actors, so both probe actors are forced
+# onto the same worker. ${WORKER_IMAGE} is copied from the parking demo's
+# WorkerPool by run.sh, so the probe runs the exact ateworker-gvisor build
+# setup.sh installed.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ate-probe-memlimit
+---
+apiVersion: ate.dev/v1
+kind: WorkerPool
+metadata:
+  name: memlimit
+  namespace: ate-probe-memlimit
+  labels:
+    workload: memlimit
+spec:
+  replicas: 1
+  workerImage: ${WORKER_IMAGE}
+  sandboxClasses:
+  - name: gvisor
+  template:
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 2Gi

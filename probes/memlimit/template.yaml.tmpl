@@ -1,0 +1,21 @@
+# Each actor is capped at 256Mi; run.sh asks one of them to hold 400MiB.
+metadata:
+  atespace: ate-probe-memlimit
+  name: memhog
+workerSelector:
+  matchLabels:
+    workload: memlimit
+containers:
+- name: memhog
+  image: ${MEMHOG_IMAGE}
+  command: ["/memhog"]
+  wakeupProbe:
+    httpGet:
+      path: /readyz
+      port: 80
+resources:
+  limits:
+    cpuMillicores: 500
+    memoryBytes: 268435456 # 256Mi
+snapshotConfig:
+  preferredFidelity: SNAPSHOT_FIDELITY_MEMORY

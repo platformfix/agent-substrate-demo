@@ -99,13 +99,16 @@ and works the same in CI, on a laptop, and in the green room.
 `env.sh` pins an exact commit SHA, not a branch or tag:
 
 ```bash
-export SUBSTRATE_SHA="27bf34444e0c1a8762aebcafbc733a97c023cb4d"
+export SUBSTRATE_SHA="20778a6dbb01f13024642851bb592bf67c9fec05" # v1.0.1
 ```
 
-Agent Substrate is pre-1.0 and says so itself - its own README describes it
-as not ready for production use, with APIs "almost guaranteed to change."
-Tracking a moving branch would mean this demo could silently break, or
-silently change behavior, on a day it's about to go on stage. Pinning to one
+The pin was originally a pre-1.0 commit (`27bf3444`, 2026-09-18), when
+Substrate's own README warned its APIs were "almost guaranteed to change."
+They did: moving to v1.0.1 needed a new installer, a new way to reach
+actors, and a Docker plugin fix (see
+[`docs/2026-11-v1-rerun.md`](docs/2026-11-v1-rerun.md)). Tracking a moving
+branch would mean this demo could silently break, or silently change
+behavior, on a day it's about to go on stage. Pinning to one
 tested commit means the demo only changes when someone deliberately changes
 it.
 
@@ -144,6 +147,15 @@ weekly [OpenSSF Scorecard](https://securityscorecards.dev/) scan runs against
 on every push and pull request, so a regression in the scripts themselves
 fails CI, not just a slide. See [`SECURITY.md`](SECURITY.md) for how to
 report a vulnerability.
+
+## Re-run on Substrate v1.0.1 (2026-11-20)
+
+The full lifecycle was re-run on v1.0.1 and passed. Each actor is now reached
+through `kubectl ate proxy actor` on `localhost:8001`-`8004` rather than a
+port-forward to the router. What changed, the exact commands and the observed
+output, plus an over-memory-limit probe, are in
+[`docs/2026-11-v1-rerun.md`](docs/2026-11-v1-rerun.md). The section below is
+the original pre-1.0 run, kept as the baseline.
 
 ## Output, verified (2026-09-19)
 

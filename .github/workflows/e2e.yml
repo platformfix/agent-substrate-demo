@@ -29,10 +29,11 @@ jobs:
           # Pinned explicitly, not via go-version-file: that file only
           # exists after ./setup.sh vendors Substrate later in this same
           # job, so reading it here would fail on every fresh checkout.
-          # Matches agent-substrate/substrate's own go.mod (`go 1.27.0`)
-          # at the pinned commit - re-check this if the Substrate pin
-          # (env.sh SUBSTRATE_SHA) ever moves.
-          go-version: "1.27.0"
+          # Matches the `toolchain go1.27.4` line in
+          # agent-substrate/substrate's go.mod at the pinned commit (v1.0.1)
+          # - re-check this if the Substrate pin (env.sh SUBSTRATE_SHA)
+          # ever moves.
+          go-version: "1.27.4"
 
       - name: Install kind (cluster creation happens in setup.sh, not here)
         uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
@@ -44,8 +45,8 @@ jobs:
         # KO_DOCKER_REPO=ghcr.io/<owner>/<repo> when KO_DOCKER_REPO is
         # already set (see its action.yml) - unset, it persists that
         # ghcr.io value to every later step via GITHUB_ENV, so
-        # install-ate-kind.sh's own `${KO_DOCKER_REPO:-localhost:5001}`
-        # default never fires and ko tries to push demo images to a
+        # setup.sh's own `${KO_DOCKER_REPO:-localhost:5001}` default
+        # never fires and ko tries to push demo images to a
         # ghcr.io path this runner has no permission to write, failing
         # the job with "DENIED: requested access to the resource is
         # denied". Set it here to the same local kind registry setup.sh

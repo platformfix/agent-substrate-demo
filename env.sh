@@ -12,7 +12,10 @@ export KIND_REGISTRY_PORT="5001"
 
 # Pinned exactly - see Global Constraints in the plan this was built from.
 # Bumping this is a deliberate, separately-tested action.
-export SUBSTRATE_SHA="27bf34444e0c1a8762aebcafbc733a97c023cb4d"
+# This is the commit the v1.0.1 tag points at (2026-11-20). The previous pin
+# was pre-1.0 commit 27bf3444 (2026-09-18); see docs/2026-11-v1-rerun.md for
+# what changed between the two.
+export SUBSTRATE_SHA="20778a6dbb01f13024642851bb592bf67c9fec05"
 export SUBSTRATE_DIR="$REPO_ROOT/.vendor/substrate"
 
 export ATESPACE="ate-demo-parking"
@@ -21,6 +24,11 @@ export ATESPACE="ate-demo-parking"
 # variable serves both call sites below (kubectl ate create --template, and
 # WorkerPool lookups) because they are, in fact, the same string.
 export WORKERPOOL_NAME="parking"
+
+# The SPIFFE ID `kubectl ate proxy actor` presents to atenet-router. Since
+# v1.0 the router only accepts mTLS clients listed in
+# --ingress-allowed-spiffe-ids, so setup.sh installs with exactly this ID.
+export INGRESS_CLIENT_SPIFFE_ID="spiffe://cluster.local/ns/ate-system/sa/atenet-client"
 
 export DEMO_KUBECONFIG="$REPO_ROOT/.kubeconfig"
 # Every script in this repo talks to the demo cluster only - never the
