@@ -42,18 +42,71 @@ pause_for_presenter() {
   fi
 }
 
-# kubectl port-forward svc/atenet-router binds to one specific backing pod
-# for the tunnel's entire lifetime and does NOT reconnect if that pod is
-# later deleted (verified directly: force-deleting the bound pod breaks an
-# already-open tunnel with "lost connection to pod", the same signature
-# preflight.sh hit in back-to-back runs). A prior run's own restore step
-# (rollout undo) leaves its outgoing pod alive for --drain-delay (13s)
-# after the new one is Ready, so starting the tunnel immediately can bind
-# it to a pod that's about to disappear. Wait for exactly one Ready pod -
-# no leftover Terminating one - before opening the tunnel at all.
+# Since Substrate v1.0, atenet-router has no plain-HTTP port: its Service
+# exposes only 443 (HTTPS) and 8444 (TLS CONNECT), and every client must
+# present a Pod Identity certificate whose SPIFFE ID is on the install's
+# --ingress-allowed-spiffe-ids list. The old approach (kubectl port-forward
+# svc/atenet-router 8000:80 plus an ate-target-actor header on a plain curl)
+# therefore no longer has anything to connect to. `kubectl ate proxy actor`
+# is the supported client: it gets that certificate, opens a fresh
+# port-forward and CONNECT tunnel through the router per TCP connection, and
+# serves plain HTTP on a local port.
+#
+# Saturation still surfaces as a real HTTP 503 at curl: the router accepts
+# the CONNECT tunnel and Envoy answers the request inside it with
+# "503 ... no worker has room for the actor". Each proxy logs to its own file
+# so a refused tunnel (a different failure) is still diagnosable.
+#
+# Actor pN (or any name ending in digit N) is served on local port 800N.
+actor_port() {
+  echo "800${1//[!0-9]/}"
+}
+
+actor_proxy_log() {
+  echo "${PROXY_LOG_DIR:?}/$1.proxy.log"
+}
+
+start_actor_proxies() {
+  local id log found
+  PROXY_LOG_DIR="$(mktemp -d)"
+  PROXY_PIDS=()
+  for id in "$@"; do
+    log="$(actor_proxy_log "$id")"
+    kubectl ate proxy actor "$id" "$(actor_port "$id"):80" -a "$ATESPACE" >"$log" 2>&1 &
+    PROXY_PIDS+=($!)
+  done
+  for id in "$@"; do
+    log="$(actor_proxy_log "$id")"
+    found=0
+    for _ in $(seq 1 100); do
+      if grep -q "^Proxying " "$log" 2>/dev/null; then
+        found=1
+        break
+      fi
+      sleep 0.2
+    done
+    if [ "$found" -ne 1 ]; then
+      echo "proxy for $id never became ready:" >&2
+      cat "$log" >&2
+      return 1
+    fi
+  done
+}
+
+stop_actor_proxies() {
+  if [ "${#PROXY_PIDS[@]}" -gt 0 ]; then
+    kill "${PROXY_PIDS[@]}" 2>/dev/null || true
+  fi
+}
+
+# The demo rolls atenet-router (to turn parking off and back on), and the
+# outgoing pod lingers for --drain-delay (13s) after the new one is Ready.
+# kubectl ate proxy picks a ready pod per connection, so this matters less
+# than it did with one long-lived port-forward, but waiting for exactly one
+# Ready pod keeps every beat starting from the same state.
 wait_for_router_stable() {
-  local i names total ready
-  for i in $(seq 1 30); do
+  local names total ready
+  for _ in $(seq 1 60); do
     names=$(kubectl -n ate-system get pods -l app=atenet-router -o jsonpath='{.items[*].metadata.name}')
     total=$(wc -w <<<"$names")
     if [ "$total" -eq 1 ]; then
@@ -66,18 +119,4 @@ wait_for_router_stable() {
     sleep 1
   done
   return 1
-}
-
-# Belt and suspenders on top of wait_for_router_stable above: if the tunnel
-# still ends up bound to a pod that then disappears (e.g. it started
-# Terminating in the gap between the stability check and this dial), no
-# amount of curl retries against that same dead tunnel will recover it -
-# the fix is to tear the port-forward down and re-establish it, not just
-# retry the request. Callers must define their own start_port_forward
-# (setting PF_PID) before calling this - it re-dials via that function.
-restart_port_forward() {
-  kill "$PF_PID" 2>/dev/null || true
-  wait "$PF_PID" 2>/dev/null || true
-  start_port_forward
-  sleep 2
 }
